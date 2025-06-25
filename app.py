@@ -48,6 +48,30 @@ def reduzir_imagem(imagem, fator=0.5, estrategia='sem_filtro'):
                     resultado[y, x] = np.mean(bloco, axis=(0, 1))
         return resultado
 
+def aplicar_desfoque(imagem, tamanho_kernel=3):
+    if tamanho_kernel % 2 == 0:
+        raise ValueError("O tamanho do kernel deve ser ímpar.")
+
+    pad = tamanho_kernel // 2
+    if imagem.ndim == 2:
+        imagem_padded = np.pad(imagem, pad, mode='reflect')
+        desfoque = np.zeros_like(imagem)
+        for i in range(imagem.shape[0]):
+            for j in range(imagem.shape[1]):
+                bloco = imagem_padded[i:i + tamanho_kernel, j:j + tamanho_kernel]
+                desfoque[i, j] = np.mean(bloco)
+    else:
+        desfoque = np.zeros_like(imagem)
+        for c in range(3):
+            canal = imagem[:, :, c]
+            canal_padded = np.pad(canal, pad, mode='reflect')
+            for i in range(imagem.shape[0]):
+                for j in range(imagem.shape[1]):
+                    bloco = canal_padded[i:i + tamanho_kernel, j:j + tamanho_kernel]
+                    desfoque[i, j, c] = np.mean(bloco)
+
+    return desfoque
+
 # Interface do aplicativo Streamlit
 st.sidebar.title("Menu Lateral")
 arquivo = st.sidebar.file_uploader("Selecione uma imagem", type=["jpg", "jpeg", "png"])
@@ -58,7 +82,7 @@ if arquivo is not None:
     imagem_original = Image.open(arquivo)
     imagem_np = np.array(imagem_original).astype('float32') / 255.0
 
-    aba1, aba2, aba3 = st.tabs(["Cores", "Preto & Branco", "Redimensionar"])
+    aba1, aba2, aba3, aba4 = st.tabs(["Cores", "Preto & Branco", "Redimensionar", "Desfoque"])
 
     with aba1:
         st.subheader("Ajuste de Canais RGB")
@@ -104,6 +128,12 @@ if arquivo is not None:
             imagem_redimensionada = reduzir_imagem(imagem_np, fator=escala, estrategia=metodo)
 
         st.image(imagem_redimensionada, caption=f"Imagem {acao}", clamp=True, use_container_width=True)
+
+    with aba4:
+        st.subheader("Aplicar Desfoque")
+        kernel = st.slider("Tamanho do Kernel (ímpar)", 3, 15, 3, step=2)
+        imagem_desfocada = aplicar_desfoque(imagem_np, tamanho_kernel=kernel)
+        st.image(imagem_desfocada, caption=f"Imagem com Desfoque ({kernel}x{kernel})", clamp=True, use_container_width=True)
 
 else:
     st.info("Carregue uma imagem para começar.")
